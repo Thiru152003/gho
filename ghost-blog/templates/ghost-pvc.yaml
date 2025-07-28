@@ -6,7 +6,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: gp3  # default AWS storage class for EBS dynamic provisioning
+  storageClassName: gp3-csi  # default AWS storage class for EBS dynamic provisioning
   resources:
     requests:
       storage: 10Gi

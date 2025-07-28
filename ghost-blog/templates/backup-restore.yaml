@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ghost-mysql-hourly-restore-test
+  namespace: ghost-blog
+spec:
+  schedule: "30 * * * *"  # Runs every hour at minute 30 (30 mins after backup)
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: mysql-restore-test
+            image: mysql:5.7
+            command: ["/bin/sh", "-c"]
+            args:
+              - |
+                # Get latest backup
+                LATEST_BACKUP=$(ls -t /backups/hourly/ghost_backup_*.sql.gz | head -1)
+                
+                # Create test database
+                mysql -h mysql -u root -p$(MYSQL_ROOT_PASSWORD) -e "CREATE DATABASE IF NOT EXISTS ghost_restore_test"
+                
+                # Restore to test database
+                zcat ${LATEST_BACKUP} | mysql -h mysql -u root -p$(MYSQL_ROOT_PASSWORD) ghost_restore_test
+                
+                # Verify restore
+                TABLES_COUNT=$(mysql -h mysql -u root -p$(MYSQL_ROOT_PASSWORD) ghost_restore_test -e "SHOW TABLES" | wc -l)
+                
+                if [ $TABLES_COUNT -gt 0 ]; then
+                  echo "Restore successful! Found ${TABLES_COUNT} tables."
+                  mysql -h mysql -u root -p$(MYSQL_ROOT_PASSWORD) -e "DROP DATABASE ghost_restore_test"
+                else
+                  echo "Restore failed! No tables found."
+                  exit 1
+                fi
+            env:
+              - name: MYSQL_ROOT_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: mysql-secret
+                    key: mysql-root-password
+            volumeMounts:
+              - name: backup-storage
+                mountPath: /backups
+          restartPolicy: OnFailure
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: mysql-backup-pvc  # Same PVC as backups

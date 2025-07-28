@@ -3,13 +3,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: ghost-pvc
   namespace: ghost-blog
-  labels:
-    app.kubernetes.io/instance: ghost
 spec:
   accessModes:
     - ReadWriteOnce
+  storageClassName: gp3  # default AWS storage class for EBS dynamic provisioning
   resources:
     requests:
       storage: 10Gi
-  storageClassName: gp3-csi
-  volumeName: ghost-pv
